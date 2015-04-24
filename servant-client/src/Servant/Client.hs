@@ -53,7 +53,7 @@ import           Servant.Common.Req
 -- > postNewBook :: Book -> BaseUrl -> EitherT String IO Book
 -- > (getAllBooks :<|> postNewBook) = client myApi
 client :: HasClient layout => Proxy layout -> BaseUrl -> Client layout
-client p baseUrl = clientWithRoute p defReq baseUrl
+client p baseurl = clientWithRoute p defReq baseurl
 
 -- | This class lets us define how each API combinator
 -- influences the creation of an HTTP request. It's mostly
