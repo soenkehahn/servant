@@ -53,8 +53,8 @@ import           Servant.Common.Req
 -- > getAllBooks :: BaseUrl -> EitherT String IO [Book]
 -- > postNewBook :: Book -> BaseUrl -> EitherT String IO Book
 -- > (getAllBooks :<|> postNewBook) = client myApi
-client :: HasClient (Canonicalize layout) => Proxy layout -> BaseUrl -> Client layout
-client p baseurl = clientWithRoute (canonicalize p) defReq baseurl
+client :: HasClient layout => Proxy layout -> BaseUrl -> Client layout
+client p baseUrl = clientWithRoute p defReq baseUrl
 
 -- | This class lets us define how each API combinator
 -- influences the creation of an HTTP request. It's mostly
@@ -63,7 +63,7 @@ class HasClient layout where
   type Client' layout :: *
   clientWithRoute :: Proxy layout -> Req -> BaseUrl -> Client' layout
 
-type Client layout = Client' (Canonicalize layout)
+type Client layout = Client' layout
 
 -- | A client querying function for @a ':<|>' b@ will actually hand you
 --   one function for querying @a@ and another one for querying @b@,
@@ -106,8 +106,8 @@ instance (HasClient a, HasClient b) => HasClient (a :<|> b) where
 instance (KnownSymbol capture, ToText a, HasClient sublayout)
       => HasClient (Capture capture a :> sublayout) where
 
-  type Client' (Capture capture a :> sublayout) =
-    a -> Client' sublayout
+  type Client (Capture capture a :> sublayout) =
+    a -> Client sublayout
 
   clientWithRoute Proxy req baseurl val =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -158,7 +158,7 @@ instance
 #endif
   ( MimeUnrender ct a, BuildHeadersTo ls
   ) => HasClient (Get (ct ': cts) (Headers ls a)) where
-  type Client' (Get (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  type Client (Get (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
   clientWithRoute Proxy req host = do
     (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodGet req [200, 203, 204] host
     return $ Headers { getResponse = resp
@@ -193,8 +193,8 @@ instance
 instance (KnownSymbol sym, ToText a, HasClient sublayout)
       => HasClient (Header sym a :> sublayout) where
 
-  type Client' (Header sym a :> sublayout) =
-    Maybe a -> Client' sublayout
+  type Client (Header sym a :> sublayout) =
+    Maybe a -> Client sublayout
 
   clientWithRoute Proxy req baseurl mval =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -239,7 +239,7 @@ instance
 #endif
   ( MimeUnrender ct a, BuildHeadersTo ls
   ) => HasClient (Post (ct ': cts) (Headers ls a)) where
-  type Client' (Post (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  type Client (Post (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
   clientWithRoute Proxy req host = do
     (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodPost req [200, 201] host
     return $ Headers { getResponse = resp
@@ -279,7 +279,7 @@ instance
 #endif
   ( MimeUnrender ct a, BuildHeadersTo ls
   ) => HasClient (Put (ct ': cts) (Headers ls a)) where
-  type Client' (Put (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  type Client (Put (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
   clientWithRoute Proxy req host = do
     (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodPut req [200, 201] host
     return $ Headers { getResponse = resp
@@ -319,7 +319,7 @@ instance
 #endif
   ( MimeUnrender ct a, BuildHeadersTo ls
   ) => HasClient (Patch (ct ': cts) (Headers ls a)) where
-  type Client' (Patch (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  type Client (Patch (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
   clientWithRoute Proxy req host = do
     (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodPatch req [200, 201, 204] host
     return $ Headers { getResponse = resp
@@ -354,8 +354,8 @@ instance
 instance (KnownSymbol sym, ToText a, HasClient sublayout)
       => HasClient (QueryParam sym a :> sublayout) where
 
-  type Client' (QueryParam sym a :> sublayout) =
-    Maybe a -> Client' sublayout
+  type Client (QueryParam sym a :> sublayout) =
+    Maybe a -> Client sublayout
 
   -- if mparam = Nothing, we don't add it to the query string
   clientWithRoute Proxy req baseurl mparam =
@@ -400,8 +400,8 @@ instance (KnownSymbol sym, ToText a, HasClient sublayout)
 instance (KnownSymbol sym, ToText a, HasClient sublayout)
       => HasClient (QueryParams sym a :> sublayout) where
 
-  type Client' (QueryParams sym a :> sublayout) =
-    [a] -> Client' sublayout
+  type Client (QueryParams sym a :> sublayout) =
+    [a] -> Client sublayout
 
   clientWithRoute Proxy req baseurl paramlist =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -439,8 +439,8 @@ instance (KnownSymbol sym, ToText a, HasClient sublayout)
 instance (KnownSymbol sym, HasClient sublayout)
       => HasClient (QueryFlag sym :> sublayout) where
 
-  type Client' (QueryFlag sym :> sublayout) =
-    Bool -> Client' sublayout
+  type Client (QueryFlag sym :> sublayout) =
+    Bool -> Client sublayout
 
   clientWithRoute Proxy req baseurl flag =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -480,8 +480,8 @@ instance (KnownSymbol sym, HasClient sublayout)
 instance (KnownSymbol sym, ToText a, HasClient sublayout)
       => HasClient (MatrixParam sym a :> sublayout) where
 
-  type Client' (MatrixParam sym a :> sublayout) =
-    Maybe a -> Client' sublayout
+  type Client (MatrixParam sym a :> sublayout) =
+    Maybe a -> Client sublayout
 
   -- if mparam = Nothing, we don't add it to the query string
   clientWithRoute Proxy req baseurl mparam =
@@ -525,8 +525,8 @@ instance (KnownSymbol sym, ToText a, HasClient sublayout)
 instance (KnownSymbol sym, ToText a, HasClient sublayout)
       => HasClient (MatrixParams sym a :> sublayout) where
 
-  type Client' (MatrixParams sym a :> sublayout) =
-    [a] -> Client' sublayout
+  type Client (MatrixParams sym a :> sublayout) =
+    [a] -> Client sublayout
 
   clientWithRoute Proxy req baseurl paramlist =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -564,8 +564,8 @@ instance (KnownSymbol sym, ToText a, HasClient sublayout)
 instance (KnownSymbol sym, HasClient sublayout)
       => HasClient (MatrixFlag sym :> sublayout) where
 
-  type Client' (MatrixFlag sym :> sublayout) =
-    Bool -> Client' sublayout
+  type Client (MatrixFlag sym :> sublayout) =
+    Bool -> Client sublayout
 
   clientWithRoute Proxy req baseurl flag =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -607,8 +607,8 @@ instance HasClient Raw where
 instance (MimeRender ct a, HasClient sublayout)
       => HasClient (ReqBody (ct ': cts) a :> sublayout) where
 
-  type Client' (ReqBody (ct ': cts) a :> sublayout) =
-    a -> Client' sublayout
+  type Client (ReqBody (ct ': cts) a :> sublayout) =
+    a -> Client sublayout
 
   clientWithRoute Proxy req baseurl body =
     clientWithRoute (Proxy :: Proxy sublayout)
@@ -621,7 +621,7 @@ instance (MimeRender ct a, HasClient sublayout)
 
 -- | Make the querying function append @path@ to the request path.
 instance (KnownSymbol path, HasClient sublayout) => HasClient (path :> sublayout) where
-  type Client' (path :> sublayout) = Client' sublayout
+  type Client (path :> sublayout) = Client sublayout
 
   clientWithRoute Proxy req baseurl =
      clientWithRoute (Proxy :: Proxy sublayout)
