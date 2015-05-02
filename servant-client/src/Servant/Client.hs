@@ -21,6 +21,9 @@ module Servant.Client
   , module Servant.Common.BaseUrl
   ) where
 
+#if !MIN_VERSION_base(4,8,0)
+import           Control.Applicative        ((<$>))
+#endif
 import           Control.Monad
 import           Control.Monad.Trans.Either
 import           Data.ByteString.Lazy       (ByteString)
@@ -32,7 +35,9 @@ import           GHC.TypeLits
 import           Network.HTTP.Client        (Response)
 import           Network.HTTP.Media
 import qualified Network.HTTP.Types         as H
+import qualified Network.HTTP.Types.Header  as HTTP
 import           Servant.API
+import           Servant.API.ResponseHeaders
 import           Servant.API.ContentTypes
 import           Servant.Common.BaseUrl
 import           Servant.Common.Req
@@ -137,7 +142,7 @@ instance
     performRequestCT (Proxy :: Proxy ct) H.methodGet req [200, 203] baseurl
 
 -- | If you have a 'Get xs ()' endpoint, the client expects a 204 No Content
--- HTTP header.
+-- HTTP status.
 instance
 #if MIN_VERSION_base(4,8,0)
          {-# OVERLAPPING #-}
@@ -146,6 +151,21 @@ instance
   type Client' (Get (ct ': cts) ()) = EitherT ServantError IO ()
   clientWithRoute Proxy req baseurl =
     performRequestNoBody H.methodGet req [204] baseurl
+
+-- | If you have a 'Get xs (Headers ls x)' endpoint, the client expects the
+-- corresponding headers.
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPING #-}
+#endif
+  ( MimeUnrender ct a, BuildHeadersTo ls
+  ) => HasClient (Get (ct ': cts) (Headers ls a)) where
+  type Client' (Get (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  clientWithRoute Proxy req host = do
+    (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodGet req [200, 203, 204] host
+    return $ Headers { getResponse = resp
+                     , getHeadersHList = buildHeadersTo hdrs
+                     }
 
 -- | If you use a 'Header' in one of your endpoints in your API,
 -- the corresponding querying function will automatically take
@@ -213,6 +233,21 @@ instance
   clientWithRoute Proxy req baseurl =
     void $ performRequestNoBody H.methodPost req [204] baseurl
 
+-- | If you have a 'Post xs (Headers ls x)' endpoint, the client expects the
+-- corresponding headers.
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPING #-}
+#endif
+  ( MimeUnrender ct a, BuildHeadersTo ls
+  ) => HasClient (Post (ct ': cts) (Headers ls a)) where
+  type Client' (Post (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  clientWithRoute Proxy req host = do
+    (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodPost req [200, 201] host
+    return $ Headers { getResponse = resp
+                     , getHeadersHList = buildHeadersTo hdrs
+                     }
+
 -- | If you have a 'Put' endpoint in your API, the client
 -- side querying function that is created when calling 'client'
 -- will just require an argument that specifies the scheme, host
@@ -238,6 +273,21 @@ instance
   clientWithRoute Proxy req baseurl =
     void $ performRequestNoBody H.methodPut req [204] baseurl
 
+-- | If you have a 'Put xs (Headers ls x)' endpoint, the client expects the
+-- corresponding headers.
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPING #-}
+#endif
+  ( MimeUnrender ct a, BuildHeadersTo ls
+  ) => HasClient (Put (ct ': cts) (Headers ls a)) where
+  type Client' (Put (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  clientWithRoute Proxy req host = do
+    (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodPut req [200, 201] host
+    return $ Headers { getResponse = resp
+                     , getHeadersHList = buildHeadersTo hdrs
+                     }
+
 -- | If you have a 'Patch' endpoint in your API, the client
 -- side querying function that is created when calling 'client'
 -- will just require an argument that specifies the scheme, host
@@ -262,6 +312,21 @@ instance
   type Client' (Patch (ct ': cts) ()) = EitherT ServantError IO ()
   clientWithRoute Proxy req baseurl =
     void $ performRequestNoBody H.methodPatch req [204] baseurl
+
+-- | If you have a 'Patch xs (Headers ls x)' endpoint, the client expects the
+-- corresponding headers.
+instance
+#if MIN_VERSION_base(4,8,0)
+         {-# OVERLAPPING #-}
+#endif
+  ( MimeUnrender ct a, BuildHeadersTo ls
+  ) => HasClient (Patch (ct ': cts) (Headers ls a)) where
+  type Client' (Patch (ct ': cts) (Headers ls a)) = BaseUrl -> EitherT ServantError IO (Headers ls a)
+  clientWithRoute Proxy req host = do
+    (hdrs, resp) <- performRequestCT (Proxy :: Proxy ct) H.methodPatch req [200, 201, 204] host
+    return $ Headers { getResponse = resp
+                     , getHeadersHList = buildHeadersTo hdrs
+                     }
 
 -- | If you use a 'QueryParam' in one of your endpoints in your API,
 -- the corresponding querying function will automatically take
