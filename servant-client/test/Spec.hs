@@ -1,1 +1,7 @@
-{-# OPTIONS_GHC -F -pgmF hspec-discover #-}
+module Servant.Spec where
+
+import Servant.ClientSpec (spec)
+
+main :: IO ()
+main = spec
+

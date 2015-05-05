@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeOperators      #-}
 {-# OPTIONS_GHC -fcontext-stack=100 #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Servant.ClientSpec where
 
 #if !MIN_VERSION_base(4,8,0)
@@ -124,7 +125,7 @@ server = serve api (
   :<|> (return $ addHeader 1729 $ addHeader "eg2" True)
  )
 
-withServer :: (BaseUrl -> Spec) -> Spec
+withServer :: (BaseUrl -> IO a) -> IO a
 withServer action = withWaiDaemon (return server) action
 
 type FailApi =
@@ -141,10 +142,10 @@ failServer = serve failApi (
   :<|> (\_request respond -> respond $ responseLBS ok200 [("content-type", "fooooo")] "")
  )
 
-withFailServer :: (BaseUrl -> Spec) -> Spec
+withFailServer :: (BaseUrl -> IO a) -> IO a
 withFailServer action = withWaiDaemon (return failServer) action
 
-spec :: Spec
+spec :: IO ()
 spec = withServer $ \ baseUrl -> do
   let getGet :: EitherT ServantError IO Person
       getDelete :: EitherT ServantError IO ()
@@ -176,130 +177,131 @@ spec = withServer $ \ baseUrl -> do
        :<|> getRespHeaders)
          = client api baseUrl
 
-  it "Servant.API.Get" $ do
-    (Arrow.left show <$> runEitherT getGet) `shouldReturn` Right alice
+  hspec $ do
+    it "Servant.API.Get" $ do
+      (Arrow.left show <$> runEitherT getGet) `shouldReturn` Right alice
 
-  it "Servant.API.Delete" $ do
-    (Arrow.left show <$> runEitherT getDelete) `shouldReturn` Right ()
+    it "Servant.API.Delete" $ do
+      (Arrow.left show <$> runEitherT getDelete) `shouldReturn` Right ()
 
-  it "Servant.API.Capture" $ do
-    (Arrow.left show <$> runEitherT (getCapture "Paula")) `shouldReturn` Right (Person "Paula" 0)
+    it "Servant.API.Capture" $ do
+      (Arrow.left show <$> runEitherT (getCapture "Paula")) `shouldReturn` Right (Person "Paula" 0)
 
-  it "Servant.API.ReqBody" $ do
-    let p = Person "Clara" 42
-    (Arrow.left show <$> runEitherT (getBody p)) `shouldReturn` Right p
+    it "Servant.API.ReqBody" $ do
+      let p = Person "Clara" 42
+      (Arrow.left show <$> runEitherT (getBody p)) `shouldReturn` Right p
 
-  it "Servant.API.QueryParam" $ do
-    Arrow.left show <$> runEitherT (getQueryParam (Just "alice")) `shouldReturn` Right alice
-    Left FailureResponse{..} <- runEitherT (getQueryParam (Just "bob"))
-    responseStatus `shouldBe` Status 400 "bob not found"
+    it "Servant.API.QueryParam" $ do
+      Arrow.left show <$> runEitherT (getQueryParam (Just "alice")) `shouldReturn` Right alice
+      Left FailureResponse{..} <- runEitherT (getQueryParam (Just "bob"))
+      responseStatus `shouldBe` Status 400 "bob not found"
 
-  it "Servant.API.QueryParam.QueryParams" $ do
-    (Arrow.left show <$> runEitherT (getQueryParams [])) `shouldReturn` Right []
-    (Arrow.left show <$> runEitherT (getQueryParams ["alice", "bob"]))
-      `shouldReturn` Right [Person "alice" 0, Person "bob" 1]
+    it "Servant.API.QueryParam.QueryParams" $ do
+      (Arrow.left show <$> runEitherT (getQueryParams [])) `shouldReturn` Right []
+      (Arrow.left show <$> runEitherT (getQueryParams ["alice", "bob"]))
+        `shouldReturn` Right [Person "alice" 0, Person "bob" 1]
 
-  context "Servant.API.QueryParam.QueryFlag" $
-    forM_ [False, True] $ \ flag ->
-    it (show flag) $ do
-      (Arrow.left show <$> runEitherT (getQueryFlag flag)) `shouldReturn` Right flag
+    context "Servant.API.QueryParam.QueryFlag" $
+      forM_ [False, True] $ \ flag ->
+      it (show flag) $ do
+        (Arrow.left show <$> runEitherT (getQueryFlag flag)) `shouldReturn` Right flag
 
-  it "Servant.API.MatrixParam" $ do
-    Arrow.left show <$> runEitherT (getMatrixParam (Just "alice")) `shouldReturn` Right alice
-    Left FailureResponse{..} <- runEitherT (getMatrixParam (Just "bob"))
-    responseStatus `shouldBe` Status 400 "bob not found"
+    it "Servant.API.MatrixParam" $ do
+      Arrow.left show <$> runEitherT (getMatrixParam (Just "alice")) `shouldReturn` Right alice
+      Left FailureResponse{..} <- runEitherT (getMatrixParam (Just "bob"))
+      responseStatus `shouldBe` Status 400 "bob not found"
 
-  it "Servant.API.MatrixParam.MatrixParams" $ do
-    Arrow.left show <$> runEitherT (getMatrixParams []) `shouldReturn` Right []
-    Arrow.left show <$> runEitherT (getMatrixParams ["alice", "bob"])
-      `shouldReturn` Right [Person "alice" 0, Person "bob" 1]
+    it "Servant.API.MatrixParam.MatrixParams" $ do
+      Arrow.left show <$> runEitherT (getMatrixParams []) `shouldReturn` Right []
+      Arrow.left show <$> runEitherT (getMatrixParams ["alice", "bob"])
+        `shouldReturn` Right [Person "alice" 0, Person "bob" 1]
 
-  context "Servant.API.MatrixParam.MatrixFlag" $
-    forM_ [False, True] $ \ flag ->
-    it (show flag) $ do
-      Arrow.left show <$> runEitherT (getMatrixFlag flag) `shouldReturn` Right flag
+    context "Servant.API.MatrixParam.MatrixFlag" $
+      forM_ [False, True] $ \ flag ->
+      it (show flag) $ do
+        Arrow.left show <$> runEitherT (getMatrixFlag flag) `shouldReturn` Right flag
 
-  it "Servant.API.Raw on success" $ do
-    res <- runEitherT (getRawSuccess methodGet)
-    case res of
-      Left e -> assertFailure $ show e
-      Right (code, body, ct, _, response) -> do
-        (code, body, ct) `shouldBe` (200, "rawSuccess", "application"//"octet-stream")
-        C.responseBody response `shouldBe` body
-        C.responseStatus response `shouldBe` ok200
-
-  it "Servant.API.Raw on failure" $ do
-    res <- runEitherT (getRawFailure methodGet)
-    case res of
-      Left e -> assertFailure $ show e
-      Right (code, body, ct, _, response) -> do
-        (code, body, ct) `shouldBe` (400, "rawFailure", "application"//"octet-stream")
-        C.responseBody response `shouldBe` body
-        C.responseStatus response `shouldBe` badRequest400
-
-  it "Returns headers appropriately" $ withServer $ \ host -> do
-    res <- runIO $ runEitherT getRespHeaders
-    case res of
-      Left e -> runIO $ assertFailure $ show e
-      Right val -> runIO $ getHeaders val `shouldBe` [("X-Example1", "1729"), ("X-Example2", "eg2")]
-
-  modifyMaxSuccess (const 20) $ do
-    it "works for a combination of Capture, QueryParam, QueryFlag and ReqBody" $
-      property $ forAllShrink pathGen shrink $ \(NonEmpty cap) num flag body ->
-        ioProperty $ do
-          result <- Arrow.left show <$> runEitherT (getMultiple cap num flag body)
-          return $
-            result === Right (cap, num, flag, body)
-
-
-  context "client correctly handles error status codes" $ do
-    let test :: (WrappedApi, String) -> Spec
-        test (WrappedApi api, desc) =
-          it desc $
-          withWaiDaemon (return (serve api (left $ ServantErr 500 "error message" "" []))) $
-          \ host -> do
-            let getResponse :: EitherT ServantError IO ()
-                getResponse = client api host
-            Left FailureResponse{..} <- runIO $ runEitherT getResponse
-            runIO $ responseStatus `shouldBe` (Status 500 "error message")
-    mapM_ test $
-      (WrappedApi (Proxy :: Proxy Delete), "Delete") :
-      (WrappedApi (Proxy :: Proxy (Get '[JSON] ())), "Get") :
-      (WrappedApi (Proxy :: Proxy (Post '[JSON] ())), "Post") :
-      (WrappedApi (Proxy :: Proxy (Put '[JSON] ())), "Put") :
-      []
-
-  context "client returns errors appropriately" $ do
-    it "reports FailureResponse" $ do
-      Left res <- runEitherT getDelete
+    it "Servant.API.Raw on success" $ do
+      res <- runEitherT (getRawSuccess methodGet)
       case res of
-        FailureResponse (Status 404 "Not Found") _ _ -> return ()
-        _ -> fail $ "expected 404 response, but got " <> show res
+        Left e -> assertFailure $ show e
+        Right (code, body, ct, _, response) -> do
+          (code, body, ct) `shouldBe` (200, "rawSuccess", "application"//"octet-stream")
+          C.responseBody response `shouldBe` body
+          C.responseStatus response `shouldBe` ok200
 
-    it "reports DecodeFailure" $ do
-      Left res <- runEitherT (getCapture "foo")
+    it "Servant.API.Raw on failure" $ do
+      res <- runEitherT (getRawFailure methodGet)
       case res of
-        DecodeFailure _ ("application/json") _ -> return ()
-        _ -> fail $ "expected DecodeFailure, but got " <> show res
+        Left e -> assertFailure $ show e
+        Right (code, body, ct, _, response) -> do
+          (code, body, ct) `shouldBe` (400, "rawFailure", "application"//"octet-stream")
+          C.responseBody response `shouldBe` body
+          C.responseStatus response `shouldBe` badRequest400
 
-    it "reports ConnectionError" $ do
-      Right host <- return $ parseBaseUrl "127.0.0.1:987654"
-      Left res <- runEitherT getGet
+    it "Returns headers appropriately" $ withServer $ \ _ -> do
+      res <- runEitherT getRespHeaders
       case res of
-        ConnectionError (C.FailedConnectionException2 "127.0.0.1" 987654 False _) -> return ()
-        _ -> fail $ "expected ConnectionError, but got " <> show res
+        Left e -> assertFailure $ show e
+        Right val -> getHeaders val `shouldBe` [("X-Example1", "1729"), ("X-Example2", "eg2")]
 
-    it "reports UnsupportedContentType" $ do
-      Left res <- runEitherT (getGet)
-      case res of
-        UnsupportedContentType ("application/octet-stream") _ -> return ()
-        _ -> fail $ "expected UnsupportedContentType, but got " <> show res
+    modifyMaxSuccess (const 20) $ do
+      it "works for a combination of Capture, QueryParam, QueryFlag and ReqBody" $
+        property $ forAllShrink pathGen shrink $ \(NonEmpty cap) num flag body ->
+          ioProperty $ do
+            result <- Arrow.left show <$> runEitherT (getMultiple cap num flag body)
+            return $
+              result === Right (cap, num, flag, body)
 
-    it "reports InvalidContentTypeHeader" $ do
-      Left res <- runEitherT (getBody alice)
-      case res of
-        InvalidContentTypeHeader "fooooo" _ -> return ()
-        _ -> fail $ "expected InvalidContentTypeHeader, but got " <> show res
+
+    context "client correctly handles error status codes" $ do
+      let test :: (WrappedApi, String) -> Spec
+          test (WrappedApi api, desc) =
+            it desc $
+            withWaiDaemon (return (serve api (left $ ServantErr 500 "error message" "" []))) $
+            \ host -> do
+              let getResponse :: EitherT ServantError IO ()
+                  getResponse = client api host
+              Left FailureResponse{..} <- runEitherT getResponse
+              responseStatus `shouldBe` (Status 500 "error message")
+      mapM_ test $
+        (WrappedApi (Proxy :: Proxy Delete), "Delete") :
+        (WrappedApi (Proxy :: Proxy (Get '[JSON] ())), "Get") :
+        (WrappedApi (Proxy :: Proxy (Post '[JSON] ())), "Post") :
+        (WrappedApi (Proxy :: Proxy (Put '[JSON] ())), "Put") :
+        []
+
+    context "client returns errors appropriately" $ do
+      it "reports FailureResponse" $ do
+        Left res <- runEitherT getDelete
+        case res of
+          FailureResponse (Status 404 "Not Found") _ _ -> return ()
+          _ -> fail $ "expected 404 response, but got " <> show res
+
+      it "reports DecodeFailure" $ do
+        Left res <- runEitherT (getCapture "foo")
+        case res of
+          DecodeFailure _ ("application/json") _ -> return ()
+          _ -> fail $ "expected DecodeFailure, but got " <> show res
+
+      it "reports ConnectionError" $ do
+        Right _ <- return $ parseBaseUrl "127.0.0.1:987654"
+        Left res <- runEitherT getGet
+        case res of
+          ConnectionError (C.FailedConnectionException2 "127.0.0.1" 987654 False _) -> return ()
+          _ -> fail $ "expected ConnectionError, but got " <> show res
+
+      it "reports UnsupportedContentType" $ do
+        Left res <- runEitherT (getGet)
+        case res of
+          UnsupportedContentType ("application/octet-stream") _ -> return ()
+          _ -> fail $ "expected UnsupportedContentType, but got " <> show res
+
+      it "reports InvalidContentTypeHeader" $ do
+        Left res <- runEitherT (getBody alice)
+        case res of
+          InvalidContentTypeHeader "fooooo" _ -> return ()
+          _ -> fail $ "expected InvalidContentTypeHeader, but got " <> show res
 
 data WrappedApi where
   WrappedApi :: (HasServer api, Server api ~ EitherT ServantErr IO a,
@@ -309,10 +311,10 @@ data WrappedApi where
 
 -- * utils
 
-withWaiDaemon :: IO Application -> (BaseUrl -> Spec) -> Spec
+withWaiDaemon :: IO Application -> (BaseUrl -> IO a) -> IO a
 withWaiDaemon mkApplication action = do
-  application <- runIO mkApplication
-  runIO $ bracket (acquire application) free (\ (_, _, baseUrl) -> hspec $ action baseUrl)
+  application <- mkApplication
+  bracket (acquire application) free (\ (_, _, baseUrl) -> action baseUrl)
  where
   acquire application = do
     (notifyStart, waitForStart) <- lvar
