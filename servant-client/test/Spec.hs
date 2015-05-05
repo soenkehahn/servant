@@ -1,7 +1,7 @@
-module Servant.Spec where
-
-import Servant.ClientSpec (spec)
+import Servant.ClientSpec (spec, failSpec)
 
 main :: IO ()
-main = spec
+main = do
+  spec
+  failSpec
 

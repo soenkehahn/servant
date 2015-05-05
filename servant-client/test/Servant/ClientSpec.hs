@@ -130,6 +130,7 @@ withServer action = withWaiDaemon (return server) action
 
 type FailApi =
        "get" :> Raw
+  :<|> "delete" :> Raw
   :<|> "capture" :> Capture "name" String :> Raw
   :<|> "body" :> Raw
 failApi :: Proxy FailApi
@@ -138,6 +139,7 @@ failApi = Proxy
 failServer :: Application
 failServer = serve failApi (
        (\ _request respond -> respond $ responseLBS ok200 [] "")
+  :<|> (\ _request respond -> respond $ responseLBS ok200 [] "")
   :<|> (\ _capture _request respond -> respond $ responseLBS ok200 [("content-type", "application/json")] "")
   :<|> (\_request respond -> respond $ responseLBS ok200 [("content-type", "fooooo")] "")
  )
@@ -271,6 +273,19 @@ spec = withServer $ \ baseUrl -> do
         (WrappedApi (Proxy :: Proxy (Put '[JSON] ())), "Put") :
         []
 
+failSpec :: IO ()
+failSpec = withFailServer $ \ baseUrl -> do
+  let getGet :: EitherT ServantError IO Person
+      getDelete :: EitherT ServantError IO ()
+      getCapture :: String -> EitherT ServantError IO Person
+      getBody :: Person -> EitherT ServantError IO Person
+      (     getGet
+       :<|> getDelete
+       :<|> getCapture
+       :<|> getBody)
+         = client failApi baseUrl
+
+  hspec $ do
     context "client returns errors appropriately" $ do
       it "reports FailureResponse" $ do
         Left res <- runEitherT getDelete
@@ -292,7 +307,7 @@ spec = withServer $ \ baseUrl -> do
           _ -> fail $ "expected ConnectionError, but got " <> show res
 
       it "reports UnsupportedContentType" $ do
-        Left res <- runEitherT (getGet)
+        Left res <- runEitherT getGet
         case res of
           UnsupportedContentType ("application/octet-stream") _ -> return ()
           _ -> fail $ "expected UnsupportedContentType, but got " <> show res
