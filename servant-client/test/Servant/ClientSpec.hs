@@ -130,7 +130,6 @@ withServer action = withWaiDaemon (return server) action
 
 type FailApi =
        "get" :> Raw
-  :<|> "delete" :> Raw
   :<|> "capture" :> Capture "name" String :> Raw
   :<|> "body" :> Raw
 failApi :: Proxy FailApi
@@ -139,7 +138,6 @@ failApi = Proxy
 failServer :: Application
 failServer = serve failApi (
        (\ _request respond -> respond $ responseLBS ok200 [] "")
-  :<|> (\ _request respond -> respond $ responseLBS ok200 [] "")
   :<|> (\ _capture _request respond -> respond $ responseLBS ok200 [("content-type", "application/json")] "")
   :<|> (\_request respond -> respond $ responseLBS ok200 [("content-type", "fooooo")] "")
  )
@@ -273,6 +271,8 @@ spec = withServer $ \ baseUrl -> do
         (WrappedApi (Proxy :: Proxy (Put '[JSON] ())), "Put") :
         []
 
+type RawRight = (Int, ByteString, MediaType, [HTTP.Header], C.Response ByteString)
+
 failSpec :: IO ()
 failSpec = withFailServer $ \ baseUrl -> do
   let getGet :: EitherT ServantError IO Person
@@ -282,8 +282,11 @@ failSpec = withFailServer $ \ baseUrl -> do
       (     getGet
        :<|> getDelete
        :<|> getCapture
-       :<|> getBody)
-         = client failApi baseUrl
+       :<|> getBody
+       :<|> _ )
+         = client api baseUrl
+      getGetWrongHost :: EitherT ServantError IO Person
+      (getGetWrongHost :<|> _) = client api (BaseUrl Http "127.0.0.1" 19872)
 
   hspec $ do
     context "client returns errors appropriately" $ do
@@ -300,10 +303,9 @@ failSpec = withFailServer $ \ baseUrl -> do
           _ -> fail $ "expected DecodeFailure, but got " <> show res
 
       it "reports ConnectionError" $ do
-        Right _ <- return $ parseBaseUrl "127.0.0.1:987654"
-        Left res <- runEitherT getGet
+        Left res <- runEitherT getGetWrongHost
         case res of
-          ConnectionError (C.FailedConnectionException2 "127.0.0.1" 987654 False _) -> return ()
+          ConnectionError (C.FailedConnectionException2 "127.0.0.1" 19872 False _) -> return ()
           _ -> fail $ "expected ConnectionError, but got " <> show res
 
       it "reports UnsupportedContentType" $ do
