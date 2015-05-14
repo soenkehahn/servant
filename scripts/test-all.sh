@@ -28,7 +28,7 @@ prepare_sandbox () {
     for s in ${SOURCES[@]} ; do
         (cd "$s" && $CABAL sandbox init --sandbox=../.cabal-sandbox/ && $CABAL sandbox add-source .)
     done
-    $CABAL install --enable-tests ${SOURCES[@]}
+    $CABAL install --enable-tests -j1 ${SOURCES[@]}
 }
 
 test_each () {
