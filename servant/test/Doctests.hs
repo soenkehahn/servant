@@ -1,14 +1,9 @@
 module Main where
 
-import           Control.Applicative
-import           Data.Foldable (forM_)
-import           Data.List (isPrefixOf, intercalate)
-import           Data.Maybe
+import           Data.List (isPrefixOf)
 import           System.Directory
-import           System.Environment
 import           System.FilePath
 import           System.FilePath.Find
-import           System.Process
 import           Test.DocTest
 
 main :: IO ()

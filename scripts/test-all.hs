@@ -11,7 +11,7 @@ main :: IO ()
 main = do
   servantPackages <- lines <$> readFile "sources.txt"
   createGlobalSandbox servantPackages
-  -- buildAndTest servantPackages
+  buildAndTest servantPackages
   dists servantPackages
 
 createGlobalSandbox servantPackages = do
