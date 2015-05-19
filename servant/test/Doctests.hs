@@ -1,9 +1,14 @@
 module Main where
 
-import           Data.List (isPrefixOf)
+import           Control.Applicative
+import           Data.Foldable (forM_)
+import           Data.List (isPrefixOf, intercalate)
+import           Data.Maybe
 import           System.Directory
+import           System.Environment
 import           System.FilePath
 import           System.FilePath.Find
+import           System.Process
 import           Test.DocTest
 
 main :: IO ()
@@ -24,4 +29,4 @@ getCabalMacrosFile = do
   let rest = "build" </> "autogen" </> "cabal_macros.h"
   return $ case filter ("dist-sandbox-" `isPrefixOf`) contents of
     [x] -> "dist" </> x </> rest
-    [] -> "dist" </> rest
+    _ -> "dist" </> rest

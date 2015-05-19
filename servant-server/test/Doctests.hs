@@ -26,4 +26,4 @@ getCabalMacrosFile = do
   let rest = "build" </> "autogen" </> "cabal_macros.h"
   return $ case filter ("dist-sandbox-" `isPrefixOf`) contents of
     [x] -> "dist" </> x </> rest
-    [] -> "dist" </> rest
+    _ -> "dist" </> rest
