@@ -1,10 +1,16 @@
+machine:
+  ghc:
+    version:
+      - 7.8.4
+      - 7.10.2
+
 dependencies:
   override:
     - (mkdir -p $HOME/.local/bin && cd $HOME/.local/bin && wget https://zalora-public.s3.amazonaws.com/tinc && chmod +x tinc)
     - ghc --version
     - cabal --version
     - tinc --version
-    - travis_retry cabal update
+    - cabal update
     - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
 
 test:
