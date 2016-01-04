@@ -1,3 +1,12 @@
+dependencies:
+  override:
+    - (mkdir -p $HOME/.local/bin && cd $HOME/.local/bin && wget https://zalora-public.s3.amazonaws.com/tinc && chmod +x tinc)
+    - ghc --version
+    - cabal --version
+    - tinc --version
+    - travis_retry cabal update
+    - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
+
 test:
   override:
     - for package in $(cat sources.txt); do (cd $package && tinc && cabal configure --enable-tests --disable-optimization && cabal build && cabal test) || exit 1; done
